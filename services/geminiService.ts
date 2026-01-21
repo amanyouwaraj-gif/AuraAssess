@@ -3,32 +3,21 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { PositionLevel, CodingQuestion, MCQQuestion, Exam, UserAnswer, RunResult, SectionType } from "../types";
 import { LEVEL_DNA } from "../constants";
 
-// Initialize the Google GenAI client using a named parameter and environment variable.
-const apiKey = process.env.API_KEY;
-
-const ai = new GoogleGenAI({ apiKey: apiKey || '' });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const safeParseJson = (text: string | undefined, fallbackName: string) => {
   if (!text) throw new Error(`Empty response for ${fallbackName}`);
   try {
-    // Remove any markdown blocks that might wrap the JSON
     const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanText);
   } catch (e) {
     console.error("Parse Error:", e, text);
-    throw new Error(`Invalid JSON structure in ${fallbackName}. The model provided a malformed response.`);
-  }
-};
-
-const checkApiKey = () => {
-  if (!apiKey || apiKey === 'your_gemini_api_key' || apiKey === '') {
-    throw new Error("Gemini API Key is missing. Please add API_KEY to your .env file.");
+    throw new Error(`Invalid JSON in ${fallbackName}`);
   }
 };
 
 export const geminiService = {
   async generateCompleteAssessment(company: string, role: string, level: PositionLevel): Promise<Exam> {
-    checkApiKey();
     const dna = LEVEL_DNA[level];
     const prompt = `
       ACT AS A SENIOR RECRUITMENT ARCHITECT FOR ${company}. 
@@ -45,14 +34,16 @@ export const geminiService = {
       MANDATORY REQUIREMENTS:
       - EXACTLY 2 (TWO) CODING QUESTIONS.
       - 5 TECHNICAL MCQS, 5 QUANTITATIVE, 5 REASONING.
-      - Return a valid JSON object strictly following the schema. Do not include any text outside the JSON.
+      - Each section must strictly follow the difficulty tiers above.
+      - Return a valid JSON object following the schema.
     `;
 
     try {
       const response: GenerateContentResponse = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
+          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -187,16 +178,24 @@ export const geminiService = {
   },
 
   async generatePracticeSet(topic: string, difficulty: string): Promise<CodingQuestion[]> {
-    checkApiKey();
     const prompt = `
+      ACT AS A SENIOR ML ENGINEER AND COMPETITIVE PROGRAMMER.
       GENERATE A SET OF EXACTLY 5 (FIVE) UNIQUE PROBLEMS FOR TOPIC: "${topic}" AT ${difficulty} LEVEL.
-      Return a JSON array of objects following the defined coding question schema.
+
+      STRICT COGNITIVE DIFFICULTY RUBRIC:
+      - EASY: Foundations. Single logical path.
+      - MEDIUM: Analytical Synthesis. Required integrating multiple concepts.
+      - HARD: Deep Abstraction. Intricate implementation and high edge-case density.
+
+      CONSTRAINTS:
+      - Return a JSON array of objects following the defined schema.
     `;
 
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
+        thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -252,20 +251,21 @@ export const geminiService = {
   },
 
   async runCodeAgainstTests(question: CodingQuestion, code: string, language: string): Promise<RunResult> {
-    checkApiKey();
     const prompt = `
-      JUDGE THE FOLLOWING CODE FOR THE PROBLEM: ${question.title}.
+      ULTRA-FAST CODE JUDGE. PROBLEM: ${question.title}.
       CODE:
       ${code}
       
-      EVALUATE AGAINST 15 TEST CASES. Return JSON with pass/fail and scores.
+      EVALUATE AGAINST 15 INTERNAL TEST CASES. 
+      Return JSON with passed status and test results.
     `;
     
     try {
       const response: GenerateContentResponse = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
+          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -298,18 +298,19 @@ export const geminiService = {
   },
 
   async evaluateAnswers(exam: Exam, answers: Record<string, UserAnswer>): Promise<any> {
-    checkApiKey();
     const prompt = `
-      GRADE THE EXAM ANSWERS AGAINST THE EXAM METADATA.
+      ACT AS A BRUTAL COMPETITIVE EXAMINER. 
+      TASK: GRADE THE EXAM ANSWERS AGAINST THE EXAM METADATA.
       EXAM: ${JSON.stringify(exam)}
       ANSWERS: ${JSON.stringify(answers)}
     `;
     
     try {
       const response: GenerateContentResponse = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
+          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
