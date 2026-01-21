@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserHistory, PracticeStats } from '../types';
 import { DSA_TOPICS } from '../constants';
 import { dbService } from '../services/dbService';
@@ -13,7 +13,15 @@ interface PracticeHubProps {
 const PracticeHub: React.FC<PracticeHubProps> = ({ history, onStartPractice, onBack }) => {
   const [selectedTopic, setSelectedTopic] = useState(DSA_TOPICS[0]);
   const [selectedDifficulty, setSelectedDifficulty] = useState('Medium');
-  const stats = dbService.getPracticeStats();
+  const [stats, setStats] = useState<PracticeStats | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const data = await dbService.getPracticeStats();
+      setStats(data);
+    };
+    fetchStats();
+  }, [history]);
 
   const getDifficultyInsight = (diff: string) => {
     switch(diff) {
@@ -23,6 +31,8 @@ const PracticeHub: React.FC<PracticeHubProps> = ({ history, onStartPractice, onB
       default: return "";
     }
   };
+
+  if (!stats) return <div className="p-20 text-center text-slate-500 font-black animate-pulse">Syncing Proficiency Traces...</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -101,7 +111,6 @@ const PracticeHub: React.FC<PracticeHubProps> = ({ history, onStartPractice, onB
         {/* Right: Synthesis Controls */}
         <div className="lg:col-span-2 space-y-10">
           <section className="bg-slate-900/40 border border-white/5 rounded-[3rem] p-12 shadow-2xl relative overflow-hidden">
-             {/* pointer-events-none ensures this overlay doesn't block clicks on the buttons underneath */}
              <div className="absolute top-0 right-0 p-12 opacity-[0.02] pointer-events-none">
                 <svg className="w-64 h-64 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
              </div>

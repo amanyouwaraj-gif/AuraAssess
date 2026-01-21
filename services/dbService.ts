@@ -1,26 +1,125 @@
 
+import { neon } from '@neondatabase/serverless';
 import { User, ExamSession, UserHistory, PracticeAttempt, PracticeStats } from '../types';
 
-const STORAGE_KEY_SESSIONS = 'aura_db_v1_sessions';
-const STORAGE_KEY_PRACTICE = 'aura_db_v1_practice';
-const STORAGE_KEY_USER_DB = 'aura_db_v1_users';
 const SESSION_TOKEN_KEY = 'aura_auth_token';
+const DB_URL_SESSION_KEY = 'aura_db_runtime_url';
+
+// Default connection string provided for infrastructure initialization
+const DEFAULT_DATABASE_URL = "postgresql://neondb_owner:npg_i1RSdtf0nbjM@ep-wispy-glade-ah68u421-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+
+// Private variable to hold the SQL connection instance
+let _sql: any = null;
+let _runtimeUrl: string | null = sessionStorage.getItem(DB_URL_SESSION_KEY);
+
+/**
+ * Sets the database URL at runtime and initializes the connection.
+ */
+export const setDbRuntimeUrl = (url: string) => {
+  _runtimeUrl = url;
+  sessionStorage.setItem(DB_URL_SESSION_KEY, url);
+  _sql = neon(url);
+};
+
+/**
+ * Lazily initializes and returns the Neon SQL connection.
+ */
+const getSql = () => {
+  if (_sql) return _sql;
+  
+  const url = process.env.DATABASE_URL || _runtimeUrl || DEFAULT_DATABASE_URL;
+  if (!url) {
+    throw new Error("Neon Database URL not found. Infrastructure requires configuration.");
+  }
+  
+  _sql = neon(url);
+  return _sql;
+};
 
 export const dbService = {
+  isConfigured(): boolean {
+    return !!(process.env.DATABASE_URL || _runtimeUrl || DEFAULT_DATABASE_URL);
+  },
+
+  /**
+   * Initializes the database schema.
+   */
+  async init(): Promise<void> {
+    if (!this.isConfigured()) return;
+    try {
+      const sql = getSql();
+      await sql`
+        CREATE TABLE IF NOT EXISTS users (
+          id UUID PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          username TEXT NOT NULL,
+          created_at BIGINT NOT NULL
+        );
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS sessions (
+          id UUID PRIMARY KEY,
+          user_id UUID NOT NULL,
+          exam_data JSONB NOT NULL,
+          answers JSONB NOT NULL,
+          is_completed BOOLEAN DEFAULT FALSE,
+          results JSONB,
+          updated_at BIGINT NOT NULL
+        );
+      `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS practice_attempts (
+          id UUID PRIMARY KEY,
+          user_id UUID NOT NULL,
+          question_data JSONB NOT NULL,
+          answer TEXT NOT NULL,
+          language TEXT NOT NULL,
+          run_result JSONB NOT NULL,
+          score INTEGER NOT NULL,
+          timestamp BIGINT NOT NULL
+        );
+      `;
+      console.log("Database Protocol: Infrastructure Online.");
+    } catch (e: any) {
+      console.error("Infrastructure Sync Failed:", e.message);
+      throw e;
+    }
+  },
+
   async login(email: string, pass: string): Promise<User> {
-    const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEY_USER_DB) || '[]');
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (!user) throw new Error("Diagnostic Identity not found.");
+    const sql = getSql();
+    const result = await sql`
+      SELECT * FROM users WHERE LOWER(email) = LOWER(${email}) AND password = ${pass}
+    `;
+    if (result.length === 0) throw new Error("Diagnostic Identity not found.");
+    const user: User = {
+      id: result[0].id,
+      email: result[0].email,
+      username: result[0].username,
+      createdAt: result[0].created_at
+    };
     localStorage.setItem(SESSION_TOKEN_KEY, JSON.stringify(user));
     return user;
   },
 
   async signup(email: string, pass: string): Promise<User> {
-    const users: User[] = JSON.parse(localStorage.getItem(STORAGE_KEY_USER_DB) || '[]');
-    if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) throw new Error("Identity already anchored.");
-    const newUser: User = { id: crypto.randomUUID(), email: email.toLowerCase(), username: email.split('@')[0], createdAt: Date.now() };
-    users.push(newUser);
-    localStorage.setItem(STORAGE_KEY_USER_DB, JSON.stringify(users));
+    const sql = getSql();
+    const check = await sql`SELECT id FROM users WHERE LOWER(email) = LOWER(${email})`;
+    if (check.length > 0) throw new Error("Identity already anchored.");
+    
+    const newUser: User = { 
+      id: crypto.randomUUID(), 
+      email: email.toLowerCase(), 
+      username: email.split('@')[0], 
+      createdAt: Date.now() 
+    };
+    
+    await sql`
+      INSERT INTO users (id, email, password, username, created_at)
+      VALUES (${newUser.id}, ${newUser.email}, ${pass}, ${newUser.username}, ${newUser.createdAt})
+    `;
+    
     localStorage.setItem(SESSION_TOKEN_KEY, JSON.stringify(newUser));
     return newUser;
   },
@@ -35,39 +134,72 @@ export const dbService = {
   async saveSession(session: ExamSession): Promise<void> {
     const user = this.getCurrentUser();
     if (!user) return;
-    const all: any[] = JSON.parse(localStorage.getItem(STORAGE_KEY_SESSIONS) || '[]');
-    const sWithMeta = { ...session, userId: user.id, updatedAt: Date.now() };
-    const idx = all.findIndex(s => s.exam.id === session.exam.id && s.userId === user.id);
-    if (idx >= 0) all[idx] = sWithMeta; else all.unshift(sWithMeta);
-    localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(all));
+    
+    const sql = getSql();
+    const id = session.id || crypto.randomUUID();
+    await sql`
+      INSERT INTO sessions (id, user_id, exam_data, answers, is_completed, results, updated_at)
+      VALUES (${id}, ${user.id}, ${JSON.stringify(session.exam)}, ${JSON.stringify(session.answers)}, ${session.isCompleted}, ${JSON.stringify(session.results)}, ${Date.now()})
+      ON CONFLICT (id) DO UPDATE SET
+        exam_data = EXCLUDED.exam_data,
+        answers = EXCLUDED.answers,
+        is_completed = EXCLUDED.is_completed,
+        results = EXCLUDED.results,
+        updated_at = EXCLUDED.updated_at
+    `;
   },
 
   async savePracticeAttempt(attempt: PracticeAttempt): Promise<void> {
     const user = this.getCurrentUser();
     if (!user) return;
-    const all: any[] = JSON.parse(localStorage.getItem(STORAGE_KEY_PRACTICE) || '[]');
-    all.unshift({ ...attempt, userId: user.id });
-    localStorage.setItem(STORAGE_KEY_PRACTICE, JSON.stringify(all));
+    
+    const sql = getSql();
+    await sql`
+      INSERT INTO practice_attempts (id, user_id, question_data, answer, language, run_result, score, timestamp)
+      VALUES (${attempt.id}, ${user.id}, ${JSON.stringify(attempt.question)}, ${attempt.answer}, ${attempt.language}, ${JSON.stringify(attempt.runResult)}, ${attempt.score}, ${attempt.timestamp})
+    `;
   },
 
-  getHistory(): UserHistory {
+  async getHistory(): Promise<UserHistory> {
     const user = this.getCurrentUser();
     if (!user) return { sessions: [], practiceAttempts: [], averageReadiness: 0, discoveredCompanies: {} };
 
-    const allSessions: any[] = JSON.parse(localStorage.getItem(STORAGE_KEY_SESSIONS) || '[]');
-    const allPractice: any[] = JSON.parse(localStorage.getItem(STORAGE_KEY_PRACTICE) || '[]');
+    try {
+      const sql = getSql();
+      const sessionsRaw = await sql`SELECT * FROM sessions WHERE user_id = ${user.id} ORDER BY updated_at DESC`;
+      const practiceRaw = await sql`SELECT * FROM practice_attempts WHERE user_id = ${user.id} ORDER BY timestamp DESC`;
 
-    const sessions = allSessions.filter(s => s.userId === user.id);
-    const practiceAttempts = allPractice.filter(p => p.userId === user.id);
+      const sessions: ExamSession[] = sessionsRaw.map(s => ({
+        id: s.id,
+        exam: s.exam_data,
+        answers: s.answers,
+        startTime: s.updated_at,
+        isCompleted: s.is_completed,
+        results: s.results
+      }));
 
-    const completed = sessions.filter(s => s.isCompleted);
-    const averageReadiness = completed.length ? Math.round(completed.reduce((acc, s) => acc + (s.results?.readinessScore || 0), 0) / completed.length) : 0;
+      const practiceAttempts: PracticeAttempt[] = practiceRaw.map(p => ({
+        id: p.id,
+        question: p.question_data,
+        answer: p.answer,
+        language: p.language,
+        runResult: p.run_result,
+        timestamp: p.timestamp,
+        score: p.score
+      }));
 
-    return { sessions, practiceAttempts, averageReadiness, discoveredCompanies: {} };
+      const completed = sessions.filter(s => s.isCompleted);
+      const averageReadiness = completed.length ? Math.round(completed.reduce((acc, s) => acc + (s.results?.readinessScore || 0), 0) / completed.length) : 0;
+
+      return { sessions, practiceAttempts, averageReadiness, discoveredCompanies: {} };
+    } catch (e) {
+      console.error("History fetch failed:", e);
+      return { sessions: [], practiceAttempts: [], averageReadiness: 0, discoveredCompanies: {} };
+    }
   },
 
-  getPracticeStats(): PracticeStats {
-    const { practiceAttempts } = this.getHistory();
+  async getPracticeStats(): Promise<PracticeStats> {
+    const { practiceAttempts } = await this.getHistory();
     const stats: PracticeStats = {
       totalSolved: practiceAttempts.length,
       difficultyBreakdown: { Easy: 0, Medium: 0, Hard: 0 },
@@ -75,9 +207,20 @@ export const dbService = {
     };
 
     practiceAttempts.forEach(p => {
-      const diff = p.question.difficulty as 'Easy' | 'Medium' | 'Hard';
-      if (stats.difficultyBreakdown[diff] !== undefined) stats.difficultyBreakdown[diff]++;
-      stats.topicsSolved[p.question.topic] = (stats.topicsSolved[p.question.topic] || 0) + 1;
+      let diff = p.question.difficulty;
+      if (diff === 'Very Easy') diff = 'Easy';
+      if (diff === 'Very Hard' || diff === 'Ultra Hard') diff = 'Hard';
+      
+      const key = diff as keyof typeof stats.difficultyBreakdown;
+      if (stats.difficultyBreakdown[key] !== undefined) {
+        stats.difficultyBreakdown[key]++;
+      } else {
+        // Fallback for unexpected AI difficulty strings
+        stats.difficultyBreakdown.Medium++;
+      }
+      
+      const topic = p.question.topic || 'Unknown';
+      stats.topicsSolved[topic] = (stats.topicsSolved[topic] || 0) + 1;
     });
 
     return stats;

@@ -12,10 +12,11 @@ import AuthScreen from './components/AuthScreen';
 import PracticeHub from './components/PracticeHub';
 import PracticeEditor from './components/PracticeEditor';
 import PracticeResults from './components/PracticeResults';
+import DatabaseConfig from './components/DatabaseConfig';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [view, setView] = useState<'auth' | 'setup' | 'intro' | 'exam' | 'results' | 'practice-hub' | 'practice-editor' | 'practice-results'>('auth');
+  const [view, setView] = useState<'db-config' | 'auth' | 'setup' | 'intro' | 'exam' | 'results' | 'practice-hub' | 'practice-editor' | 'practice-results'>('auth');
   const [session, setSession] = useState<ExamSession | null>(null);
   const [practiceSession, setPracticeSession] = useState<PracticeSession | null>(null);
   const [history, setHistory] = useState<UserHistory>({ sessions: [], practiceAttempts: [], averageReadiness: 0, discoveredCompanies: {} });
@@ -23,17 +24,54 @@ const App: React.FC = () => {
   const [discoveryState, setDiscoveryState] = useState<{ active: boolean; msg: string }>({ active: false, msg: '' });
   
   useEffect(() => {
-    const activeUser = dbService.getCurrentUser();
-    if (activeUser) {
-      setUser(activeUser);
-      setHistory(dbService.getHistory());
-      setView('setup');
-    }
+    const initApp = async () => {
+      if (!dbService.isConfigured()) {
+        setView('db-config');
+        return;
+      }
+      
+      try {
+        await dbService.init();
+        const activeUser = dbService.getCurrentUser();
+        if (activeUser) {
+          setUser(activeUser);
+          const userHistory = await dbService.getHistory();
+          setHistory(userHistory);
+          setView('setup');
+        } else {
+          setView('auth');
+        }
+      } catch (e) {
+        setView('db-config');
+      }
+    };
+    initApp();
   }, []);
 
-  const handleAuthenticated = (newUser: User) => {
+  const handleDbConfigured = async () => {
+    setLoading(true);
+    try {
+      await dbService.init();
+      const activeUser = dbService.getCurrentUser();
+      if (activeUser) {
+        setUser(activeUser);
+        const userHistory = await dbService.getHistory();
+        setHistory(userHistory);
+        setView('setup');
+      } else {
+        setView('auth');
+      }
+    } catch (e) {
+      alert("Database Handshake Failed. Please check your connection string.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAuthenticated = async (newUser: User) => {
     setUser(newUser);
-    setHistory(dbService.getHistory());
+    const userHistory = await dbService.getHistory();
+    setHistory(userHistory);
     setView('setup');
   };
 
@@ -69,13 +107,14 @@ const App: React.FC = () => {
 
   const handlePracticeSessionComplete = async (finalAttempts: Record<string, PracticeAttempt>) => {
     setLoading(true);
-    setDiscoveryState({ active: true, msg: "Archiving Practice Trace..." });
+    setDiscoveryState({ active: true, msg: "Archiving Practice Trace to Neon..." });
     try {
       for (const attempt of Object.values(finalAttempts)) {
         await dbService.savePracticeAttempt(attempt);
       }
       setPracticeSession(prev => prev ? { ...prev, attempts: finalAttempts, isCompleted: true } : null);
-      setHistory(dbService.getHistory());
+      const userHistory = await dbService.getHistory();
+      setHistory(userHistory);
       setView('practice-results');
     } catch (e) { alert("Persistence failure."); } finally { setLoading(false); setDiscoveryState({ active: false, msg: '' }); }
   };
@@ -89,7 +128,8 @@ const App: React.FC = () => {
       const completedSession = { ...session, answers, isCompleted: true, results };
       setSession(completedSession);
       await dbService.saveSession(completedSession);
-      setHistory(dbService.getHistory());
+      const userHistory = await dbService.getHistory();
+      setHistory(userHistory);
       setView('results');
     } catch (error) { alert("Evaluation error."); setView('setup'); } finally { setLoading(false); setDiscoveryState({ active: false, msg: '' }); }
   };
@@ -98,6 +138,8 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
       <Suspense fallback={<DiscoveryOverlay message="Syncing Network..." />}>
         {discoveryState.active && <DiscoveryOverlay message={discoveryState.msg} />}
+        
+        {view === 'db-config' && <DatabaseConfig onConfigured={handleDbConfigured} />}
         
         {view === 'auth' && <AuthScreen onAuthenticated={handleAuthenticated} />}
         

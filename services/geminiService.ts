@@ -35,6 +35,7 @@ export const geminiService = {
       - EXACTLY 2 (TWO) CODING QUESTIONS.
       - 5 TECHNICAL MCQS, 5 QUANTITATIVE, 5 REASONING.
       - Each section must strictly follow the difficulty tiers above.
+      - Return a valid JSON object following the schema.
     `;
 
     try {
@@ -143,7 +144,9 @@ export const geminiService = {
                   vibe: {type: Type.STRING}, 
                   predictedTopics: {type: Type.ARRAY, items: {type: Type.STRING}}, 
                   confidence: {type: Type.STRING}, 
-                  category: {type: Type.STRING}
+                  category: {type: Type.STRING},
+                  assumptions: {type: Type.ARRAY, items: {type: Type.STRING}},
+                  includesAptitude: {type: Type.BOOLEAN}
                 }
               }
             },
@@ -180,16 +183,11 @@ export const geminiService = {
       GENERATE A SET OF EXACTLY 5 (FIVE) UNIQUE PROBLEMS FOR TOPIC: "${topic}" AT ${difficulty} LEVEL.
 
       STRICT COGNITIVE DIFFICULTY RUBRIC:
-      - EASY (Foundational Logic): Straightforward implementation. Single logical path. Focus on correctness and standard syntax. No tricks.
-      - MEDIUM (Analytical Synthesis): Requires integrating 2 or 3 concepts. Solution requires a "twist" (e.g., using a specific data structure to optimize an obvious O(N^2) approach). Moderate edge cases.
-      - HARD (Deep Intuition & Abstraction): Cryptic problem descriptions. Requires deep mathematical or logical intuition. Solution must handle high edge-case density (nulls, cycles, overflows simultaneously). Implementation is intricate.
+      - EASY: Foundations. Single logical path.
+      - MEDIUM: Analytical Synthesis. Required integrating multiple concepts.
+      - HARD: Deep Abstraction. Intricate implementation and high edge-case density.
 
       CONSTRAINTS:
-      - Problems must be 100% unique (never seen on LeetCode/Codeforces).
-      - Provide starter codes for JS, Python, Java, C++.
-      - 2 public samples per question.
-      - 15 hidden test cases per question.
-      - Optimized solution_code.
       - Return a JSON array of objects following the defined schema.
     `;
 
@@ -259,8 +257,7 @@ export const geminiService = {
       ${code}
       
       EVALUATE AGAINST 15 INTERNAL TEST CASES. 
-      BE STRICT. 
-      Score 0 if it's boilerplate or non-functional.
+      Return JSON with passed status and test results.
     `;
     
     try {
@@ -338,7 +335,9 @@ export const geminiService = {
                     questionId: { type: Type.STRING },
                     score: { type: Type.NUMBER },
                     feedback: { type: Type.STRING },
-                    correctSolution: { type: Type.STRING }
+                    correctSolution: { type: Type.STRING },
+                    passedCount: { type: Type.NUMBER },
+                    totalCount: { type: Type.NUMBER }
                   }
                 }
               }
