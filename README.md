@@ -11,9 +11,34 @@ AuraAssess is a high-fidelity recruitment simulation platform that bridges the g
 
 ---
 
-## 🛠️ Environment Configuration
+## 💻 Local Development Setup
 
-To operate the application, you must configure two critical environment variables.
+To fix the `'vite' is not recognized` error, you must install the dependencies first.
+
+### 1. Installation
+Open your terminal in the project root and run:
+```bash
+npm install
+```
+
+### 2. Environment Configuration
+Create a `.env` file in the project root:
+```env
+API_KEY=your_gemini_api_key_here
+DATABASE_URL=your_neon_connection_string_here
+```
+*Note: If DATABASE_URL is omitted, the app will use the built-in Neon fallback or prompt you at runtime.*
+
+### 3. Execution
+Launch the development server:
+```bash
+npm run dev
+```
+The application will be accessible at `http://localhost:5173`.
+
+---
+
+## 🛠️ Infrastructure Requirements
 
 ### 1. Google Gemini API Key
 Obtain a key from the [Google AI Studio](https://ai.google.dev/).
@@ -26,29 +51,6 @@ AuraAssess requires a PostgreSQL database to store user history and practice att
 
 ---
 
-## 💻 Local Development Setup
-
-1. **Clone & Install**:
-   ```bash
-   git clone <repository-url>
-   npm install
-   ```
-
-2. **Configure Environment**:
-   Create a `.env` file in the project root:
-   ```env
-   API_KEY=your_gemini_api_key_here
-   DATABASE_URL=your_neon_connection_string_here
-   ```
-
-3. **Run**:
-   ```bash
-   npm run dev
-   ```
-   Access the app at `http://localhost:5173`.
-
----
-
 ## 🌐 Production Deployment
 
 AuraAssess is optimized for **Vercel** or **Netlify**.
@@ -56,9 +58,7 @@ AuraAssess is optimized for **Vercel** or **Netlify**.
 ### Deployment Steps:
 1. Push your code to a GitHub/GitLab repository.
 2. Connect your repository to your deployment provider (e.g., Vercel).
-3. **Important**: Add the following in the **Environment Variables** section of your provider's dashboard:
-   - `API_KEY`: Your Gemini API Key.
-   - `DATABASE_URL`: Your Neon PostgreSQL Connection String.
+3. **Important**: Add your `API_KEY` and `DATABASE_URL` in the **Environment Variables** section of your provider's dashboard.
 4. Deploy the site.
 
 ### Infrastructure Resilience:
@@ -72,6 +72,6 @@ If `DATABASE_URL` is missing during deployment, the application will gracefully 
 - **Database**: `@neondatabase/serverless` (Neon PostgreSQL).
 - **Editor**: `react-ace` + `ace-builds` (ESM optimized).
 - **Styling**: Tailwind CSS.
-- **Runtime**: React 19 (Native ES Modules via Import Maps).
+- **Runtime**: React 19 + Vite.
 
 *AuraAssess — Precision recruitment through adaptive AI synthesis.*
