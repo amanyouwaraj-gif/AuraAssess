@@ -35,19 +35,14 @@ export const geminiService = {
       - EXACTLY 2 (TWO) CODING QUESTIONS.
       - 5 TECHNICAL MCQS, 5 QUANTITATIVE, 5 REASONING.
       - Each section must strictly follow the difficulty tiers above.
-      
-      CODING SPECS:
-      - Functional starter code for all major languages.
-      - SOLUTION_CODE: Full, optimized SDE-level solution.
-      - SAMPLES: At least 2 public test cases with detailed explanations.
-      - CONSTRAINTS: Must be realistic and challenging for the level.
     `;
 
     try {
       const response: GenerateContentResponse = await ai.models.generateContent({
-        model: "gemini-3-pro-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
+          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -84,8 +79,7 @@ export const geminiService = {
                             python: { type: Type.STRING },
                             java: { type: Type.STRING },
                             cpp: { type: Type.STRING }
-                          },
-                          required: ["javascript", "python", "java", "cpp"]
+                          }
                         }, 
                         samples: { 
                           type: Type.ARRAY, 
@@ -95,8 +89,7 @@ export const geminiService = {
                               input: {type: Type.STRING}, 
                               output: {type: Type.STRING},
                               explanation: {type: Type.STRING}
-                            },
-                            required: ["input", "output", "explanation"]
+                            }
                           } 
                         }, 
                         hidden_tests: { 
@@ -106,16 +99,14 @@ export const geminiService = {
                             properties: {
                               input: { type: Type.STRING },
                               output: { type: Type.STRING }
-                            },
-                            required: ["input", "output"]
+                            }
                           }
                         }, 
                         solution_code: {type: Type.STRING}, 
                         solution_explanation: {type: Type.STRING}, 
                         difficulty: {type: Type.STRING}, 
                         topic: {type: Type.STRING} 
-                      }, 
-                      required: ["title", "problem", "starterCodes", "samples", "constraints", "solution_code", "solution_explanation"] 
+                      }
                     } 
                   },
                   quantitative: { 
@@ -127,8 +118,7 @@ export const geminiService = {
                         options: {type: Type.ARRAY, items: {type: Type.STRING}}, 
                         correctAnswer: {type: Type.INTEGER},
                         explanation: {type: Type.STRING}
-                      },
-                      required: ["question", "options", "correctAnswer", "explanation"]
+                      }
                     } 
                   },
                   reasoning: { 
@@ -140,8 +130,7 @@ export const geminiService = {
                         options: {type: Type.ARRAY, items: {type: Type.STRING}}, 
                         correctAnswer: {type: Type.INTEGER},
                         explanation: {type: Type.STRING}
-                      },
-                      required: ["question", "options", "correctAnswer", "explanation"]
+                      }
                     } 
                   }
                 },
@@ -154,14 +143,11 @@ export const geminiService = {
                   vibe: {type: Type.STRING}, 
                   predictedTopics: {type: Type.ARRAY, items: {type: Type.STRING}}, 
                   confidence: {type: Type.STRING}, 
-                  category: {type: Type.STRING}, 
-                  assumptions: {type: Type.ARRAY, items: {type: Type.STRING}}, 
-                  includesAptitude: {type: Type.BOOLEAN} 
-                },
-                required: ["vibe", "predictedTopics", "confidence", "category"]
+                  category: {type: Type.STRING}
+                }
               }
             },
-            required: ["sections", "timeMinutes", "inference"]
+            required: ["sections", "timeMinutes"]
           }
         }
       });
@@ -188,6 +174,84 @@ export const geminiService = {
     }
   },
 
+  async generatePracticeSet(topic: string, difficulty: string): Promise<CodingQuestion[]> {
+    const prompt = `
+      ACT AS A SENIOR ML ENGINEER AND COMPETITIVE PROGRAMMER.
+      GENERATE A SET OF EXACTLY 5 (FIVE) UNIQUE PROBLEMS FOR TOPIC: "${topic}" AT ${difficulty} LEVEL.
+
+      STRICT COGNITIVE DIFFICULTY RUBRIC:
+      - EASY (Foundational Logic): Straightforward implementation. Single logical path. Focus on correctness and standard syntax. No tricks.
+      - MEDIUM (Analytical Synthesis): Requires integrating 2 or 3 concepts. Solution requires a "twist" (e.g., using a specific data structure to optimize an obvious O(N^2) approach). Moderate edge cases.
+      - HARD (Deep Intuition & Abstraction): Cryptic problem descriptions. Requires deep mathematical or logical intuition. Solution must handle high edge-case density (nulls, cycles, overflows simultaneously). Implementation is intricate.
+
+      CONSTRAINTS:
+      - Problems must be 100% unique (never seen on LeetCode/Codeforces).
+      - Provide starter codes for JS, Python, Java, C++.
+      - 2 public samples per question.
+      - 15 hidden test cases per question.
+      - Optimized solution_code.
+      - Return a JSON array of objects following the defined schema.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        thinkingConfig: { thinkingBudget: 0 },
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              problem: { type: Type.STRING },
+              constraints: { type: Type.STRING },
+              starterCodes: {
+                type: Type.OBJECT,
+                properties: {
+                  javascript: { type: Type.STRING },
+                  python: { type: Type.STRING },
+                  java: { type: Type.STRING },
+                  cpp: { type: Type.STRING }
+                }
+              },
+              samples: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    input: { type: Type.STRING },
+                    output: { type: Type.STRING },
+                    explanation: { type: Type.STRING }
+                  }
+                }
+              },
+              hidden_tests: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    input: { type: Type.STRING },
+                    output: { type: Type.STRING }
+                  }
+                }
+              },
+              solution_code: { type: Type.STRING },
+              solution_explanation: { type: Type.STRING },
+              difficulty: { type: Type.STRING },
+              topic: { type: Type.STRING }
+            },
+            required: ["title", "problem", "starterCodes", "samples", "solution_code"]
+          }
+        }
+      }
+    });
+
+    const parsed = safeParseJson(response.text, "Practice Set Synthesis");
+    return parsed.map((q: any) => ({ ...q, id: crypto.randomUUID(), topic, difficulty }));
+  },
+
   async runCodeAgainstTests(question: CodingQuestion, code: string, language: string): Promise<RunResult> {
     const prompt = `
       ULTRA-FAST CODE JUDGE. PROBLEM: ${question.title}.
@@ -196,8 +260,7 @@ export const geminiService = {
       
       EVALUATE AGAINST 15 INTERNAL TEST CASES. 
       BE STRICT. 
-      If code is empty or just boiler plate, all tests fail (Score 0).
-      Provide expectedOutput and actualOutput for each case.
+      Score 0 if it's boilerplate or non-functional.
     `;
     
     try {
@@ -223,8 +286,7 @@ export const geminiService = {
                     passed: { type: Type.BOOLEAN },
                     category: { type: Type.STRING },
                     isHidden: { type: Type.BOOLEAN }
-                  },
-                  required: ["passed", "category", "expectedOutput", "actualOutput", "input"]
+                  }
                 }
               }
             },
@@ -242,24 +304,6 @@ export const geminiService = {
     const prompt = `
       ACT AS A BRUTAL COMPETITIVE EXAMINER. 
       TASK: GRADE THE EXAM ANSWERS AGAINST THE EXAM METADATA.
-      
-      CRITICAL SCORING PROTOCOL (STRICT ENFORCEMENT):
-      1. MCQs (Technical, Quantitative, Reasoning):
-         - IF User choice is NULL, EMPTY, or UNDEFINED: SCORE = 0.
-         - IF User choice is WRONG: SCORE = 0.
-         - NO PARTIAL CREDIT. If it's not perfect, it's 0.
-      2. CODING:
-         - IF User provided NO CODE or 'runResult' is missing: SCORE = 0.
-         - OTHERWISE: USE THE EXACT 'runResult.score'.
-      3. REFERENCE SOLUTIONS:
-         - YOU MUST PROVIDE THE COMPLETE 'correctSolution' (full text or code) FOR EVERY SINGLE QUESTION.
-         - For Coding, return the 'solution_code' exactly.
-      
-      GENERATE REPORT:
-      - 'readinessScore' is the absolute average of all question scores.
-      - If no answers provided, readinessScore MUST BE 0.
-      
-      DATA:
       EXAM: ${JSON.stringify(exam)}
       ANSWERS: ${JSON.stringify(answers)}
     `;
@@ -284,8 +328,7 @@ export const geminiService = {
                   coding: {type: Type.NUMBER}, 
                   quantitative: {type: Type.NUMBER}, 
                   reasoning: {type: Type.NUMBER} 
-                },
-                required: ["technical", "coding", "quantitative", "reasoning"]
+                }
               },
               evaluations: {
                 type: Type.ARRAY,
@@ -295,15 +338,11 @@ export const geminiService = {
                     questionId: { type: Type.STRING },
                     score: { type: Type.NUMBER },
                     feedback: { type: Type.STRING },
-                    correctSolution: { type: Type.STRING },
-                    passedCount: { type: Type.NUMBER },
-                    totalCount: { type: Type.NUMBER }
-                  },
-                  required: ["questionId", "score", "feedback", "correctSolution"]
+                    correctSolution: { type: Type.STRING }
+                  }
                 }
               }
-            },
-            required: ["totalScore", "readinessScore", "overallFeedback", "sectionScores", "evaluations"]
+            }
           }
         }
       });

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { PositionLevel, Exam, ExamSession, UserAnswer, UserHistory, User, SectionType } from './types';
+import { PositionLevel, Exam, ExamSession, UserAnswer, UserHistory, User, CodingQuestion, PracticeAttempt, PracticeSession } from './types';
 import { geminiService } from './services/geminiService';
 import { dbService } from './services/dbService';
 import SetupScreen from './components/SetupScreen';
@@ -9,12 +9,16 @@ import ResultsDashboard from './components/ResultsDashboard';
 import DiscoveryOverlay from './components/DiscoveryOverlay';
 import ExamIntro from './components/ExamIntro';
 import AuthScreen from './components/AuthScreen';
+import PracticeHub from './components/PracticeHub';
+import PracticeEditor from './components/PracticeEditor';
+import PracticeResults from './components/PracticeResults';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [view, setView] = useState<'auth' | 'setup' | 'intro' | 'exam' | 'results'>('auth');
+  const [view, setView] = useState<'auth' | 'setup' | 'intro' | 'exam' | 'results' | 'practice-hub' | 'practice-editor' | 'practice-results'>('auth');
   const [session, setSession] = useState<ExamSession | null>(null);
-  const [history, setHistory] = useState<UserHistory>({ sessions: [], averageReadiness: 0, discoveredCompanies: {} });
+  const [practiceSession, setPracticeSession] = useState<PracticeSession | null>(null);
+  const [history, setHistory] = useState<UserHistory>({ sessions: [], practiceAttempts: [], averageReadiness: 0, discoveredCompanies: {} });
   const [loading, setLoading] = useState(false);
   const [discoveryState, setDiscoveryState] = useState<{ active: boolean; msg: string }>({ active: false, msg: '' });
   
@@ -24,17 +28,6 @@ const App: React.FC = () => {
       setUser(activeUser);
       setHistory(dbService.getHistory());
       setView('setup');
-    }
-
-    const activeSession = localStorage.getItem('aura_active_session');
-    if (activeSession && activeUser) {
-      try {
-        const parsed = JSON.parse(activeSession);
-        if (!parsed.isCompleted) {
-          setSession(parsed);
-          setView('exam');
-        }
-      } catch (e) { console.error(e); }
     }
   }, []);
 
@@ -47,34 +40,45 @@ const App: React.FC = () => {
   const handleStartExamRequest = async (company: string, role: string, level: PositionLevel) => {
     setLoading(true);
     setDiscoveryState({ active: true, msg: `Mining ${company} Pattern DNA...` });
-    
     try {
       const exam = await geminiService.generateCompleteAssessment(company, role, level);
-      const newSession: ExamSession = { 
-        exam, 
-        answers: {}, 
-        startTime: Date.now(), 
-        isCompleted: false, 
-        currentSection: 'Technical', 
-        currentIdx: 0 
-      };
+      const newSession: ExamSession = { exam, answers: {}, startTime: Date.now(), isCompleted: false, currentSection: 'Technical', currentIdx: 0 };
       setSession(newSession);
-      localStorage.setItem('aura_active_session', JSON.stringify(newSession));
       setView('intro');
-    } catch (error: any) {
-      alert(`Synthesis delay. Try again.`);
-    } finally {
-      setLoading(false);
-      setDiscoveryState({ active: false, msg: '' });
-    }
+    } catch (error) { alert(`Synthesis delay.`); } finally { setLoading(false); setDiscoveryState({ active: false, msg: '' }); }
   };
 
-  const handleViewPastResults = (oldSession: ExamSession) => {
-    setSession(oldSession);
-    setView('results');
+  const handleStartPractice = async (topic: string, difficulty: string) => {
+    setLoading(true);
+    setDiscoveryState({ active: true, msg: `Synthesizing 5 Unique ${topic} Vectors...` });
+    try {
+      const questions = await geminiService.generatePracticeSet(topic, difficulty);
+      const newPracticeSession: PracticeSession = {
+        id: crypto.randomUUID(),
+        topic,
+        difficulty,
+        questions,
+        attempts: {},
+        startTime: Date.now(),
+        isCompleted: false
+      };
+      setPracticeSession(newPracticeSession);
+      setView('practice-editor');
+    } catch (e) { alert("Matrix synthesis failed."); } finally { setLoading(false); setDiscoveryState({ active: false, msg: '' }); }
   };
 
-  const handleBeginExam = () => setView('exam');
+  const handlePracticeSessionComplete = async (finalAttempts: Record<string, PracticeAttempt>) => {
+    setLoading(true);
+    setDiscoveryState({ active: true, msg: "Archiving Practice Trace..." });
+    try {
+      for (const attempt of Object.values(finalAttempts)) {
+        await dbService.savePracticeAttempt(attempt);
+      }
+      setPracticeSession(prev => prev ? { ...prev, attempts: finalAttempts, isCompleted: true } : null);
+      setHistory(dbService.getHistory());
+      setView('practice-results');
+    } catch (e) { alert("Persistence failure."); } finally { setLoading(false); setDiscoveryState({ active: false, msg: '' }); }
+  };
 
   const handleExamComplete = async (answers: Record<string, UserAnswer>) => {
     if (!session) return;
@@ -87,26 +91,8 @@ const App: React.FC = () => {
       await dbService.saveSession(completedSession);
       setHistory(dbService.getHistory());
       setView('results');
-    } catch (error) {
-      alert("Evaluation error.");
-      setView('setup');
-    } finally {
-      setLoading(false);
-      setDiscoveryState({ active: false, msg: '' });
-    }
+    } catch (error) { alert("Evaluation error."); setView('setup'); } finally { setLoading(false); setDiscoveryState({ active: false, msg: '' }); }
   };
-
-  const handleLogout = () => {
-    dbService.logout();
-    setUser(null);
-    setView('auth');
-  };
-
-  useEffect(() => {
-    if (session && !session.isCompleted && user) {
-      localStorage.setItem('aura_active_session', JSON.stringify(session));
-    }
-  }, [session, user]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
@@ -118,14 +104,38 @@ const App: React.FC = () => {
         {view === 'setup' && (
           <SetupScreen 
             onStart={handleStartExamRequest} 
+            onEnterPractice={() => setView('practice-hub')}
             history={history} 
             user={user!} 
-            onLogout={handleLogout}
-            onViewHistory={handleViewPastResults}
+            onLogout={() => { dbService.logout(); setUser(null); setView('auth'); }}
+            onViewHistory={(s) => { setSession(s); setView('results'); }}
           />
         )}
 
-        {view === 'intro' && session && <ExamIntro inference={session.exam.inference!} onBegin={handleBeginExam} />}
+        {view === 'practice-hub' && (
+          <PracticeHub 
+            history={history} 
+            onStartPractice={handleStartPractice} 
+            onBack={() => setView('setup')} 
+          />
+        )}
+
+        {view === 'practice-editor' && practiceSession && (
+          <PracticeEditor 
+            session={practiceSession} 
+            onComplete={handlePracticeSessionComplete} 
+            onBack={() => setView('practice-hub')} 
+          />
+        )}
+
+        {view === 'practice-results' && practiceSession && (
+          <PracticeResults 
+            session={practiceSession} 
+            onDone={() => setView('practice-hub')} 
+          />
+        )}
+
+        {view === 'intro' && session && <ExamIntro inference={session.exam.inference!} onBegin={() => setView('exam')} />}
         
         {view === 'exam' && session && (
           <ExamScreen 

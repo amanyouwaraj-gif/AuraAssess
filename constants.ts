@@ -49,6 +49,23 @@ export const COMPANIES: CompanyProfile[] = [
   { name: 'Uber', commonTopics: ['Graph Algorithms', 'Geometry', 'Real-time Systems'], vibe: 'Hard algorithmic challenges' },
 ];
 
+export const DSA_TOPICS = [
+  'Arrays & Hashing',
+  'Two Pointers',
+  'Sliding Window',
+  'Stack',
+  'Binary Search',
+  'Linked List',
+  'Trees',
+  'Heaps',
+  'Backtracking',
+  'Graphs',
+  'Dynamic Programming',
+  'Bit Manipulation',
+  'Advanced Graphs',
+  'Math & Geometry'
+];
+
 export const SUPPORTED_LANGUAGES = [
   { id: 'javascript', name: 'JavaScript' },
   { id: 'typescript', name: 'TypeScript' },

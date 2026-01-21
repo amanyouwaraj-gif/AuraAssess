@@ -5,13 +5,14 @@ import { COMPANIES } from '../constants';
 
 interface SetupScreenProps {
   onStart: (company: string, role: string, level: PositionLevel) => void;
+  onEnterPractice: () => void;
   onViewHistory: (session: ExamSession) => void;
   history: UserHistory;
   user: User;
   onLogout: () => void;
 }
 
-const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, history, user, onLogout, onViewHistory }) => {
+const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, onEnterPractice, history, user, onLogout, onViewHistory }) => {
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('Software Development Engineer');
   const [level, setLevel] = useState<PositionLevel>(PositionLevel.SDE_1);
@@ -30,18 +31,26 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, history, user, onLog
           </h1>
           <p className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">Authenticated: {user.username}</p>
         </div>
-        <button 
-          onClick={onLogout}
-          className="px-6 py-3 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 text-xs font-bold hover:text-white transition-all uppercase tracking-widest"
-        >
-          Terminate Session
-        </button>
+        <div className="flex gap-4">
+          <button 
+            onClick={onEnterPractice}
+            className="px-6 py-3 rounded-2xl bg-indigo-500 text-white text-xs font-black hover:bg-indigo-400 transition-all uppercase tracking-widest shadow-xl shadow-indigo-500/20"
+          >
+            Practice Mode
+          </button>
+          <button 
+            onClick={onLogout}
+            className="px-6 py-3 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 text-xs font-bold hover:text-white transition-all uppercase tracking-widest"
+          >
+            Terminate Session
+          </button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <div className="lg:col-span-2 space-y-10">
           <section className="bg-slate-900/40 border border-slate-800 backdrop-blur-xl rounded-[2.5rem] p-10 shadow-2xl">
-            <h2 className="text-xl font-bold mb-10 flex items-center gap-4">
+            <h2 className="text-xl font-bold mb-10 flex items-center gap-4 text-white">
               <span className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg text-lg text-white font-black">01</span>
               Configure Domain Probe
             </h2>
@@ -101,6 +110,26 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, history, user, onLog
               </button>
             </div>
           </section>
+
+          {/* New Highlight for Practice Section */}
+          <section 
+            onClick={onEnterPractice}
+            className="group cursor-pointer bg-gradient-to-br from-indigo-900/20 to-slate-900 border border-indigo-500/20 rounded-[2.5rem] p-10 shadow-2xl hover:border-indigo-500/40 transition-all overflow-hidden relative"
+          >
+            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+              <svg className="w-48 h-48 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.989-2.386l-.548-.547z" /></svg>
+            </div>
+            <div className="relative z-10">
+              <h3 className="text-2xl font-black text-white mb-4 italic">Unrestricted Practice Hub</h3>
+              <p className="text-slate-400 max-w-lg mb-8 leading-relaxed font-medium">
+                Want to sharpen specific skills? Enter the Practice Matrix to solve dynamically generated DSA problems by topic. No timers, no stress, just pure growth tracking.
+              </p>
+              <div className="inline-flex items-center gap-4 px-8 py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400 text-[10px] font-black uppercase tracking-widest group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                Enter Practice Matrix
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+              </div>
+            </div>
+          </section>
         </div>
 
         <div className="space-y-8">
@@ -126,7 +155,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, history, user, onLog
                 
                 <div className="space-y-3">
                   <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest px-2 mb-4">Past Analysis Sessions</div>
-                  {history.sessions.map((s, i) => (
+                  {history.sessions.slice(0, 5).map((s, i) => (
                     <button 
                       key={s.exam.id} 
                       onClick={() => onViewHistory(s)}
@@ -149,13 +178,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onStart, history, user, onLog
               </div>
             )}
           </section>
-
-          <div className="p-8 rounded-[2.5rem] bg-indigo-600/5 border border-indigo-600/10">
-            <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Sync Status</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-              Your exam data is securely anchored to our Neon PostgreSQL database. Logic patterns and solutions are decrypted only for your session.
-            </p>
-          </div>
         </div>
       </div>
     </div>

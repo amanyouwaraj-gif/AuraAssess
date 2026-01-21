@@ -54,7 +54,7 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ session, onRestart 
       {/* Hero Performance Header */}
       <header className="mb-16 text-center">
         <div className="inline-block relative mb-6">
-          <div className="absolute inset-0 bg-indigo-500 blur-[120px] opacity-20"></div>
+          <div className="absolute inset-0 bg-indigo-500 blur-[120px] opacity-20 pointer-events-none"></div>
           <div className="relative bg-slate-900/40 border border-white/10 rounded-[3rem] p-12 backdrop-blur-3xl shadow-2xl">
             <div className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em] mb-4">Integrity Verification Report</div>
             <div className="text-9xl font-black text-white tracking-tighter tabular-nums leading-none">
@@ -182,7 +182,7 @@ const ResultsDashboard: React.FC<ResultsDashboardProps> = ({ session, onRestart 
 
                       {/* Structural Diagnosis */}
                       <div className="relative p-8 rounded-3xl bg-indigo-500/5 border border-indigo-500/10 overflow-hidden shadow-inner">
-                        <div className="absolute top-0 right-0 p-4 opacity-[0.03]">
+                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] pointer-events-none">
                            <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                         </div>
                         <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em] mb-4">Structural Diagnostic Breakdown</h5>

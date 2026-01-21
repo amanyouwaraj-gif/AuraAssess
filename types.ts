@@ -107,7 +107,7 @@ export interface UserAnswer {
   answer: string;
   language?: string;
   codeStates?: Record<string, string>; 
-  runResult?: RunResult; // Persistence of code execution results
+  runResult?: RunResult;
 }
 
 export interface EvaluationResult {
@@ -136,8 +136,39 @@ export interface ExamSession {
   };
 }
 
+export interface PracticeAttempt {
+  id: string;
+  question: CodingQuestion;
+  answer: string;
+  language: string;
+  runResult: RunResult;
+  timestamp: number;
+  score: number;
+}
+
+export interface PracticeSession {
+  id: string;
+  topic: string;
+  difficulty: string;
+  questions: CodingQuestion[];
+  attempts: Record<string, PracticeAttempt>;
+  startTime: number;
+  isCompleted: boolean;
+}
+
 export interface UserHistory {
   sessions: ExamSession[];
+  practiceAttempts: PracticeAttempt[];
   averageReadiness: number;
   discoveredCompanies: Record<string, CompanyInference>;
+}
+
+export interface PracticeStats {
+  totalSolved: number;
+  difficultyBreakdown: {
+    Easy: number;
+    Medium: number;
+    Hard: number;
+  };
+  topicsSolved: Record<string, number>;
 }
