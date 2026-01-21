@@ -1,0 +1,5 @@
+{
+  "name": "AuraAssess: AI-Powered Adaptive Coding Examiner",
+  "description": "A sophisticated local examination platform that generates and evaluates company-specific coding assessments tailored to position levels from Intern to Architect, featuring AI-driven pattern analysis and evaluation.",
+  "requestFramePermissions": []
+}
