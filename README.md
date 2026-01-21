@@ -2,7 +2,7 @@
 
 ---
 
-## 🚀 [**CLICK HERE TO OPEN THE LIVE APP**](https://ai.studio/apps/drive/1fc64F4evgRf-oPiovOyyEl_fWldOaD_H)
+## 🚀 [**CLICK HERE TO OPEN THE LIVE APP**](https://ai.studio/apps/drive/1fc64F4evgRf-oPiovOyyEl_fWldOaD_H?fullscreenApplet=true)
 **Production Endpoint:** `https://aura-assess.vercel.app`
 
 ---
