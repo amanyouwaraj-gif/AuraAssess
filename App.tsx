@@ -83,7 +83,13 @@ const App: React.FC = () => {
       const newSession: ExamSession = { exam, answers: {}, startTime: Date.now(), isCompleted: false, currentSection: 'Technical', currentIdx: 0 };
       setSession(newSession);
       setView('intro');
-    } catch (error) { alert(`Synthesis delay.`); } finally { setLoading(false); setDiscoveryState({ active: false, msg: '' }); }
+    } catch (error: any) { 
+      console.error("Exam Generation Failed:", error);
+      alert(`Synthesis error: ${error.message || "Unknown API failure"}`); 
+    } finally { 
+      setLoading(false); 
+      setDiscoveryState({ active: false, msg: '' }); 
+    }
   };
 
   const handleStartPractice = async (topic: string, difficulty: string) => {
@@ -102,7 +108,13 @@ const App: React.FC = () => {
       };
       setPracticeSession(newPracticeSession);
       setView('practice-editor');
-    } catch (e) { alert("Matrix synthesis failed."); } finally { setLoading(false); setDiscoveryState({ active: false, msg: '' }); }
+    } catch (e: any) { 
+      console.error("Practice Synthesis Failed:", e);
+      alert(`Matrix synthesis failed: ${e.message}`); 
+    } finally { 
+      setLoading(false); 
+      setDiscoveryState({ active: false, msg: '' }); 
+    }
   };
 
   const handlePracticeSessionComplete = async (finalAttempts: Record<string, PracticeAttempt>) => {

@@ -4,21 +4,31 @@ import { PositionLevel, CodingQuestion, MCQQuestion, Exam, UserAnswer, RunResult
 import { LEVEL_DNA } from "../constants";
 
 // Initialize the Google GenAI client using a named parameter and environment variable.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = process.env.API_KEY;
+
+const ai = new GoogleGenAI({ apiKey: apiKey || '' });
 
 const safeParseJson = (text: string | undefined, fallbackName: string) => {
   if (!text) throw new Error(`Empty response for ${fallbackName}`);
   try {
+    // Remove any markdown blocks that might wrap the JSON
     const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanText);
   } catch (e) {
     console.error("Parse Error:", e, text);
-    throw new Error(`Invalid JSON in ${fallbackName}`);
+    throw new Error(`Invalid JSON structure in ${fallbackName}. The model provided a malformed response.`);
+  }
+};
+
+const checkApiKey = () => {
+  if (!apiKey || apiKey === 'your_gemini_api_key' || apiKey === '') {
+    throw new Error("Gemini API Key is missing. Please add API_KEY to your .env file.");
   }
 };
 
 export const geminiService = {
   async generateCompleteAssessment(company: string, role: string, level: PositionLevel): Promise<Exam> {
+    checkApiKey();
     const dna = LEVEL_DNA[level];
     const prompt = `
       ACT AS A SENIOR RECRUITMENT ARCHITECT FOR ${company}. 
@@ -35,12 +45,10 @@ export const geminiService = {
       MANDATORY REQUIREMENTS:
       - EXACTLY 2 (TWO) CODING QUESTIONS.
       - 5 TECHNICAL MCQS, 5 QUANTITATIVE, 5 REASONING.
-      - Each section must strictly follow the difficulty tiers above.
-      - Return a valid JSON object following the schema.
+      - Return a valid JSON object strictly following the schema. Do not include any text outside the JSON.
     `;
 
     try {
-      // Using gemini-3-pro-preview for complex reasoning tasks like exam synthesis.
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
         contents: prompt,
@@ -179,20 +187,12 @@ export const geminiService = {
   },
 
   async generatePracticeSet(topic: string, difficulty: string): Promise<CodingQuestion[]> {
+    checkApiKey();
     const prompt = `
-      ACT AS A SENIOR ML ENGINEER AND COMPETITIVE PROGRAMMER.
       GENERATE A SET OF EXACTLY 5 (FIVE) UNIQUE PROBLEMS FOR TOPIC: "${topic}" AT ${difficulty} LEVEL.
-
-      STRICT COGNITIVE DIFFICULTY RUBRIC:
-      - EASY: Foundations. Single logical path.
-      - MEDIUM: Analytical Synthesis. Required integrating multiple concepts.
-      - HARD: Deep Abstraction. Intricate implementation and high edge-case density.
-
-      CONSTRAINTS:
-      - Return a JSON array of objects following the defined schema.
+      Return a JSON array of objects following the defined coding question schema.
     `;
 
-    // Upgrade to gemini-3-pro-preview for complex programming task generation.
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: prompt,
@@ -252,17 +252,16 @@ export const geminiService = {
   },
 
   async runCodeAgainstTests(question: CodingQuestion, code: string, language: string): Promise<RunResult> {
+    checkApiKey();
     const prompt = `
-      ULTRA-FAST CODE JUDGE. PROBLEM: ${question.title}.
+      JUDGE THE FOLLOWING CODE FOR THE PROBLEM: ${question.title}.
       CODE:
       ${code}
       
-      EVALUATE AGAINST 15 INTERNAL TEST CASES. 
-      Return JSON with passed status and test results.
+      EVALUATE AGAINST 15 TEST CASES. Return JSON with pass/fail and scores.
     `;
     
     try {
-      // Code evaluation requires deep reasoning, so gemini-3-pro-preview is preferred.
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
         contents: prompt,
@@ -299,15 +298,14 @@ export const geminiService = {
   },
 
   async evaluateAnswers(exam: Exam, answers: Record<string, UserAnswer>): Promise<any> {
+    checkApiKey();
     const prompt = `
-      ACT AS A BRUTAL COMPETITIVE EXAMINER. 
-      TASK: GRADE THE EXAM ANSWERS AGAINST THE EXAM METADATA.
+      GRADE THE EXAM ANSWERS AGAINST THE EXAM METADATA.
       EXAM: ${JSON.stringify(exam)}
       ANSWERS: ${JSON.stringify(answers)}
     `;
     
     try {
-      // Evaluation and grading of complex technical content uses gemini-3-pro-preview.
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
         contents: prompt,
