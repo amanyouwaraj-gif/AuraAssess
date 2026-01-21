@@ -5,31 +5,25 @@ import { User, ExamSession, UserHistory, PracticeAttempt, PracticeStats } from '
 const SESSION_TOKEN_KEY = 'aura_auth_token';
 const DB_URL_SESSION_KEY = 'aura_db_runtime_url';
 
-// Default connection string provided for infrastructure initialization
-const DEFAULT_DATABASE_URL = "postgresql://neondb_owner:npg_i1RSdtf0nbjM@ep-wispy-glade-ah68u421-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const DEFAULT_DATABASE_URL = "postgresql://neondb_owner:npg_i1RSdtf0nbjM@ep-wispy-glade-ah68u421-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require";
 
-// Private variable to hold the SQL connection instance
 let _sql: any = null;
-let _runtimeUrl: string | null = sessionStorage.getItem(DB_URL_SESSION_KEY);
+let _runtimeUrl: string | null = typeof window !== 'undefined' ? sessionStorage.getItem(DB_URL_SESSION_KEY) : null;
 
-/**
- * Sets the database URL at runtime and initializes the connection.
- */
 export const setDbRuntimeUrl = (url: string) => {
   _runtimeUrl = url;
-  sessionStorage.setItem(DB_URL_SESSION_KEY, url);
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem(DB_URL_SESSION_KEY, url);
+  }
   _sql = neon(url);
 };
 
-/**
- * Lazily initializes and returns the Neon SQL connection.
- */
 const getSql = () => {
   if (_sql) return _sql;
   
-  const url = process.env.DATABASE_URL || _runtimeUrl || DEFAULT_DATABASE_URL;
+  const url = (process.env.DATABASE_URL) || _runtimeUrl || DEFAULT_DATABASE_URL;
   if (!url) {
-    throw new Error("Neon Database URL not found. Infrastructure requires configuration.");
+    throw new Error("Neon Database URL not found.");
   }
   
   _sql = neon(url);
@@ -38,12 +32,9 @@ const getSql = () => {
 
 export const dbService = {
   isConfigured(): boolean {
-    return !!(process.env.DATABASE_URL || _runtimeUrl || DEFAULT_DATABASE_URL);
+    return !!((process.env.DATABASE_URL) || _runtimeUrl || DEFAULT_DATABASE_URL);
   },
 
-  /**
-   * Initializes the database schema.
-   */
   async init(): Promise<void> {
     if (!this.isConfigured()) return;
     try {
@@ -80,10 +71,9 @@ export const dbService = {
           timestamp BIGINT NOT NULL
         );
       `;
-      console.log("Database Protocol: Infrastructure Online.");
+      console.log("Database Protocol: Online.");
     } catch (e: any) {
-      console.error("Infrastructure Sync Failed:", e.message);
-      throw e;
+      console.warn("Infrastructure warning (Initial sync):", e.message);
     }
   },
 
@@ -193,7 +183,6 @@ export const dbService = {
 
       return { sessions, practiceAttempts, averageReadiness, discoveredCompanies: {} };
     } catch (e) {
-      console.error("History fetch failed:", e);
       return { sessions: [], practiceAttempts: [], averageReadiness: 0, discoveredCompanies: {} };
     }
   },
@@ -215,7 +204,6 @@ export const dbService = {
       if (stats.difficultyBreakdown[key] !== undefined) {
         stats.difficultyBreakdown[key]++;
       } else {
-        // Fallback for unexpected AI difficulty strings
         stats.difficultyBreakdown.Medium++;
       }
       

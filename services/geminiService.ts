@@ -3,6 +3,7 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { PositionLevel, CodingQuestion, MCQQuestion, Exam, UserAnswer, RunResult, SectionType } from "../types";
 import { LEVEL_DNA } from "../constants";
 
+// Initialize the Google GenAI client using a named parameter and environment variable.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const safeParseJson = (text: string | undefined, fallbackName: string) => {
@@ -39,11 +40,11 @@ export const geminiService = {
     `;
 
     try {
+      // Using gemini-3-pro-preview for complex reasoning tasks like exam synthesis.
       const response: GenerateContentResponse = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3-pro-preview",
         contents: prompt,
         config: {
-          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -191,11 +192,11 @@ export const geminiService = {
       - Return a JSON array of objects following the defined schema.
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+    // Upgrade to gemini-3-pro-preview for complex programming task generation.
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -261,11 +262,11 @@ export const geminiService = {
     `;
     
     try {
+      // Code evaluation requires deep reasoning, so gemini-3-pro-preview is preferred.
       const response: GenerateContentResponse = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3-pro-preview",
         contents: prompt,
         config: {
-          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -306,11 +307,11 @@ export const geminiService = {
     `;
     
     try {
+      // Evaluation and grading of complex technical content uses gemini-3-pro-preview.
       const response: GenerateContentResponse = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3-pro-preview",
         contents: prompt,
         config: {
-          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
